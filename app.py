@@ -171,17 +171,37 @@ with tab2:
         """
         st.graphviz_chart(dot_code)
 
-        st.markdown("""
-        **Langkah Pembuktian Terbalik (Bottom-Up Verification):**
+        st.markdown(f"""
+        ### 🔍 Proses Pencarian & Eliminasi Hipotesis (Goal-Driven):
+        
+        Sistem menguji daftar hipotesis secara berurutan hingga menemukan hipotesis yang valid dengan fakta input:
+
+        * ❌ **Pengujian Hipotesis 1:** `Tingkat = Prodi`
+          - *Cek Aturan R3:* Membutuhkan item seperti *Aula Suastika / Ruang TI 101 / Proyektor Prodi*.
+          - *Cek Fakta Input:* User memilih `{items_str}`.
+          - *Hasil:* **TIDAK COCOK (Hipotesis Ditolak/Diabaikan)**.
+
+        * ❌ **Pengujian Hipotesis 2:** `Tingkat = Universitas`
+          - *Cek Aturan R2:* Membutuhkan item *Aula Nusantara*.
+          - *Cek Fakta Input:* User memilih `{items_str}`.
+          - *Hasil:* **TIDAK COCOK (Hipotesis Ditolak/Diabaikan)**.
+
+        * ✅ **Pengujian Hipotesis 3:** `Tingkat = Fakultas`
+          - *Cek Aturan R1:* Membutuhkan item milik Fakultas.
+          - *Cek Fakta Input:* User memilih `{items_str}`.
+          - *Hasil:* **TERBUKTI COCOK! (Hipotesis Diterima)**.
+
+        ---
+
+        ### 📋 Langkah Pembuktian Terbalik (Bottom-Up Verification):
         1. **Goal Utama:** Membuktikan apakah rekomendasi surat dapat diterbitkan?
         2. **Membuktikan Sub-Goal 1 (Tingkat Kewenangan):**
-           - Hipotesis: Apakah tingkat kewenangan = **{0}**?
-           - Cek Aturan: Terbukti karena pilihan item `{1}` terdaftar di bawah wewenang **{0}**.
+           - Terbukti **Tingkat = {tingkat}** berdasarkan pencocokan Hipotesis 3 di atas.
         3. **Membuktikan Sub-Goal 2 (Alur Birokrasi):**
-           - Cek Aturan: Berdasarkan Tingkat **{0}**, alur surat otomatis ditetapkan ke: `{2}`.
+           - Cek Aturan: Karena Tingkat terbukti **{tingkat}**, maka alur surat ditetapkan ke: `{alur}`.
         4. **Membuktikan Sub-Goal 3 (Syarat Lampiran):**
-           - Cek Aturan: Berdasarkan Kategori yang dipilih, lampiran wajib adalah `{3}`.
-        5. **Kesimpulan:** Goal utama **BERHASIL TERBUKTI**.
+           - Cek Aturan: Berdasarkan Kategori yang dipilih, lampiran wajib adalah `{lampiran_str}`.
+        5. **Kesimpulan:** Goal utama **BERHASIL TERBUKTI FULL**.
         """.format(tingkat, items_str, alur, lampiran_str))
 
     st.divider()
