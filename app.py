@@ -77,9 +77,7 @@ def run_forward_chaining(kategori, items_terpilih_label):
 if 'working_memory' not in st.session_state:
     st.session_state.working_memory = None
 
-# ==========================================
 # TAB 1: DEMO APLIKASI INTERAKTIF
-# ==========================================
 with tab1:
     kategori_pilihan = st.multiselect(
         "1. Pilih Kategori Peminjaman (Bisa pilih keduanya):", 
@@ -129,9 +127,7 @@ with tab1:
             for log in st.session_state.log_aturan:
                 st.code(log, language="text")
 
-# ==========================================
 # TAB 2: BACKWARD CHAINING, CF, & LIMITATIONS
-# ==========================================
 with tab2:
     st.header("🌲 1. Pohon Backward Chaining Dinamis (Goal-Driven)")
     
@@ -171,38 +167,64 @@ with tab2:
         """
         st.graphviz_chart(dot_code)
 
+        # LOGIKA PENGUJIAN HIPOTESIS
+        hipotesis_text = ""
+        
+        # 1. Uji Hipotesis Prodi (R3)
+        if tingkat == "Prodi":
+            hipotesis_text += f"1. ✅ **Pengujian Hipotesis 1:** `Tingkat = Prodi`\n"
+            hipotesis_text += f"   - *Cek Aturan R3:* Membutuhkan item prodi (Aula Suastika, Ruang TI 101, Proyektor Prodi, Kabel HDMI).\n"
+            hipotesis_text += f"   - *Cek Fakta Input:* User memilih `{items_str}`.\n"
+            hipotesis_text += f"   - *Hasil:* **TERBUKTI COCOK! (Hipotesis Diterima)**.\n\n"
+        else:
+            hipotesis_text += f"1. ❌ **Pengujian Hipotesis 1:** `Tingkat = Prodi`\n"
+            hipotesis_text += f"   - *Cek Aturan R3:* Membutuhkan item prodi.\n"
+            hipotesis_text += f"   - *Cek Fakta Input:* User memilih `{items_str}`.\n"
+            hipotesis_text += f"   - *Hasil:* **TIDAK COCOK (Hipotesis Ditolak)**.\n\n"
+
+        # 2. Uji Hipotesis Fakultas (R1)
+        if tingkat == "Fakultas":
+            hipotesis_text += f"2. ✅ **Pengujian Hipotesis 2:** `Tingkat = Fakultas`\n"
+            hipotesis_text += f"   - *Cek Aturan R1:* Membutuhkan item fakultas (Aula Wiswakarma, Gedung Undagi Graha, Sofa, Mixer).\n"
+            hipotesis_text += f"   - *Cek Fakta Input:* User memilih `{items_str}`.\n"
+            hipotesis_text += f"   - *Hasil:* **TERBUKTI COCOK! (Hipotesis Diterima)**.\n\n"
+        else:
+            hipotesis_text += f"2. ❌ **Pengujian Hipotesis 2:** `Tingkat = Fakultas`\n"
+            hipotesis_text += f"   - *Cek Aturan R1:* Membutuhkan item fakultas.\n"
+            hipotesis_text += f"   - *Cek Fakta Input:* User memilih `{items_str}`.\n"
+            hipotesis_text += f"   - *Hasil:* **TIDAK COCOK (Hipotesis Ditolak)**.\n\n"
+
+        # 3. Uji Hipotesis Universitas (R2)
+        if tingkat == "Universitas":
+            hipotesis_text += f"3. ✅ **Pengujian Hipotesis 3:** `Tingkat = Universitas`\n"
+            hipotesis_text += f"   - *Cek Aturan R2:* Membutuhkan item universitas (Aula Nusantara).\n"
+            hipotesis_text += f"   - *Cek Fakta Input:* User memilih `{items_str}`.\n"
+            hipotesis_text += f"   - *Hasil:* **TERBUKTI COCOK! (Hipotesis Diterima)**.\n\n"
+        else:
+            hipotesis_text += f"3. ❌ **Pengujian Hipotesis 3:** `Tingkat = Universitas`\n"
+            hipotesis_text += f"   - *Cek Aturan R2:* Membutuhkan item universitas.\n"
+            hipotesis_text += f"   - *Cek Fakta Input:* User memilih `{items_str}`.\n"
+            hipotesis_text += f"   - *Hasil:* **TIDAK COCOK (Hipotesis Ditolak)**.\n\n"
+
         st.markdown(f"""
         ### 🔍 Proses Pencarian & Eliminasi Hipotesis (Goal-Driven):
         
-        Sistem menguji daftar hipotesis secara berurutan hingga menemukan hipotesis yang valid dengan fakta input:
+        Sistem menguji daftar hipotesis secara berurutan dari tingkat terendah hingga menemukan hipotesis yang cocok dengan fakta:
 
-        * ❌ **Pengujian Hipotesis 1:** `Tingkat = Prodi`
-          - *Cek Aturan R3:* Membutuhkan item seperti *Aula Suastika / Ruang TI 101 / Proyektor Prodi*.
-          - *Cek Fakta Input:* User memilih `{items_str}`.
-          - *Hasil:* **TIDAK COCOK (Hipotesis Ditolak/Diabaikan)**.
-
-        * ❌ **Pengujian Hipotesis 2:** `Tingkat = Universitas`
-          - *Cek Aturan R2:* Membutuhkan item *Aula Nusantara*.
-          - *Cek Fakta Input:* User memilih `{items_str}`.
-          - *Hasil:* **TIDAK COCOK (Hipotesis Ditolak/Diabaikan)**.
-
-        * ✅ **Pengujian Hipotesis 3:** `Tingkat = Fakultas`
-          - *Cek Aturan R1:* Membutuhkan item milik Fakultas.
-          - *Cek Fakta Input:* User memilih `{items_str}`.
-          - *Hasil:* **TERBUKTI COCOK! (Hipotesis Diterima)**.
+        {hipotesis_text}
 
         ---
 
         ### 📋 Langkah Pembuktian Terbalik (Bottom-Up Verification):
-        1. **Goal Utama:** Membuktikan apakah rekomendasi surat dapat diterbitkan?
+        1. **Goal Utama:** Membuktikan apakah rekomendasi alur & berkas surat dapat diterbitkan?
         2. **Membuktikan Sub-Goal 1 (Tingkat Kewenangan):**
-           - Terbukti **Tingkat = {tingkat}** berdasarkan pencocokan Hipotesis 3 di atas.
+           - Terbukti **Tingkat = {tingkat}** berdasarkan hasil pengujian hipotesis di atas.
         3. **Membuktikan Sub-Goal 2 (Alur Birokrasi):**
-           - Cek Aturan: Karena Tingkat terbukti **{tingkat}**, maka alur surat ditetapkan ke: `{alur}`.
+           - Cek Aturan: Karena Tingkat terbukti **{tingkat}**, alur surat ditetapkan ke: `{alur}`.
         4. **Membuktikan Sub-Goal 3 (Syarat Lampiran):**
            - Cek Aturan: Berdasarkan Kategori yang dipilih, lampiran wajib adalah `{lampiran_str}`.
-        5. **Kesimpulan:** Goal utama **BERHASIL TERBUKTI FULL**.
-        """.format(tingkat, items_str, alur, lampiran_str))
+        5. **Kesimpulan:** Goal utama **BERHASIL TERBUKTI**.
+        """)
 
     st.divider()
 
