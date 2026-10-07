@@ -7,34 +7,31 @@ st.markdown("Aplikasi membantu **Sekretaris Organisasi** menentukan alur pengaju
 
 st.divider()
 
-# MAP PERINGKAT ITEM
-ITEM_TINGKAT_MAP = {
+# MAP PERINGKAT ITEM LENGKAP DENGAN LABEL TINGKATAN
+ITEM_INFO_MAP = {
     # Fakultas
-    "Aula Wiswakarma": "Fakultas",
-    "Gedung Undagi Graha": "Fakultas",
-    "Sofa Fakultas": "Fakultas",
-    "Mixer Fakultas": "Fakultas",
+    "Aula Wiswakarma [Fakultas]": {"nama": "Aula Wiswakarma", "tingkat": "Fakultas", "jenis": "Tempat / Ruangan"},
+    "Gedung Undagi Graha [Fakultas]": {"nama": "Gedung Undagi Graha", "tingkat": "Fakultas", "jenis": "Tempat / Ruangan"},
+    "Sofa Fakultas [Fakultas]": {"nama": "Sofa Fakultas", "tingkat": "Fakultas", "jenis": "Barang / Inventaris"},
+    "Mixer Fakultas [Fakultas]": {"nama": "Mixer Fakultas", "tingkat": "Fakultas", "jenis": "Barang / Inventaris"},
     
     # Universitas
-    "Aula Nusantara": "Universitas",
+    "Aula Nusantara [Universitas]": {"nama": "Aula Nusantara", "tingkat": "Universitas", "jenis": "Tempat / Ruangan"},
     
     # Prodi
-    "Aula Suastika": "Prodi",
-    "Ruang TI 101": "Prodi",
-    "Proyektor Prodi": "Prodi",
-    "Kabel HDMI Prodi": "Prodi"
+    "Aula Suastika [Prodi]": {"nama": "Aula Suastika", "tingkat": "Prodi", "jenis": "Tempat / Ruangan"},
+    "Ruang TI 101 [Prodi]": {"nama": "Ruang TI 101", "tingkat": "Prodi", "jenis": "Tempat / Ruangan"},
+    "Proyektor Prodi [Prodi]": {"nama": "Proyektor Prodi", "tingkat": "Prodi", "jenis": "Barang / Inventaris"},
+    "Kabel HDMI Prodi [Prodi]": {"nama": "Kabel HDMI Prodi", "tingkat": "Prodi", "jenis": "Barang / Inventaris"}
 }
 
 # MESIN INFERENSI (FORWARD CHAINING)
-def run_forward_chaining(kategori, items_terpilih):
+def run_forward_chaining(kategori, items_terpilih_label):
     log_aturan = []
     
-    # Phase 1: Validasi dan Penentuan Tingkat Birokrasi
-    tingkat_set = set()
-    for item in items_terpilih:
-        tingkat = ITEM_TINGKAT_MAP.get(item)
-        if tingkat:
-            tingkat_set.add(tingkat)
+    # Extract nama bersih dan tingkatan
+    items_nama = [ITEM_INFO_MAP[item]["nama"] for item in items_terpilih_label]
+    tingkat_set = {ITEM_INFO_MAP[item]["tingkat"] for item in items_terpilih_label}
 
     # Validasi 1 Tingkatan
     if len(tingkat_set) > 1:
@@ -42,17 +39,17 @@ def run_forward_chaining(kategori, items_terpilih):
     
     tingkat_terpilih = list(tingkat_set)[0]
     
-    # Menentukan Aturan R1 - R3 yang Terpicu
+    # Phase 1: Penentuan Tingkat Birokrasi (R1 - R3)
     if tingkat_terpilih == "Fakultas":
-        log_aturan.append(f"Aturan R1 Terpicu: Item {items_terpilih} berada di bawah wewenang Fakultas")
+        log_aturan.append(f"Aturan R1 Terpicu: Item {items_nama} berada di bawah wewenang Fakultas")
     elif tingkat_terpilih == "Universitas":
-        log_aturan.append(f"Aturan R2 Terpicu: Item {items_terpilih} berada di bawah wewenang Universitas")
+        log_aturan.append(f"Aturan R2 Terpicu: Item {items_nama} berada di bawah wewenang Universitas")
     elif tingkat_terpilih == "Prodi":
-        log_aturan.append(f"Aturan R3 Terpicu: Item {items_terpilih} berada di bawah wewenang Prodi")
+        log_aturan.append(f"Aturan R3 Terpicu: Item {items_nama} berada di bawah wewenang Prodi")
 
     working_memory = {
         'kategori': kategori,
-        'items': items_terpilih,
+        'items': items_nama,
         'tingkat': tingkat_terpilih
     }
 
@@ -87,14 +84,16 @@ kategori_pilihan = st.multiselect(
     default=["Tempat / Ruangan"]
 )
 
-# Daftar Opsi Item Berdasarkan Kategori
-opsi_item = []
-if "Tempat / Ruangan" in kategori_pilihan:
-    opsi_item.extend(["Aula Wiswakarma", "Gedung Undagi Graha", "Aula Nusantara", "Aula Suastika", "Ruang TI 101"])
-if "Barang / Inventaris" in kategori_pilihan:
-    opsi_item.extend(["Sofa Fakultas", "Mixer Fakultas", "Proyektor Prodi", "Kabel HDMI Prodi"])
+# Filter daftar item berdasarkan kategori yang dipilih
+opsi_item = [
+    label for label, info in ITEM_INFO_MAP.items() 
+    if info["jenis"] in kategori_pilihan
+]
 
-items_terpilih = st.multiselect("2. Pilih Item (Bisa lebih dari 1, wajib 1 tingkatan):", opsi_item)
+items_terpilih = st.multiselect(
+    "2. Pilih Item (Label [Tingkatan] terlihat di sebelah kanan nama item):", 
+    opsi_item
+)
 
 btn_proses = st.button("🔍 Analisis Alur & Syarat", type="primary", use_container_width=True)
 
@@ -105,10 +104,8 @@ if btn_proses:
         working_memory, log_aturan = run_forward_chaining(kategori_pilihan, items_terpilih)
 
         if working_memory is None:
-            # Jika beda tingkatan
             st.error(log_aturan[0])
         else:
-            # Jika berhasil
             st.divider()
             st.success("✅ Analisis Berhasil Dilakukan!")
             st.info(f"**Tingkat Kewenangan:** {working_memory.get('tingkat')}")
