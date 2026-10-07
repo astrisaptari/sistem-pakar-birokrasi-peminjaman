@@ -91,7 +91,7 @@ opsi_item = [
 ]
 
 items_terpilih = st.multiselect(
-    "2. Pilih Item (Label [Tingkatan] terlihat di sebelah kanan nama item):", 
+    "2. Pilih Item (Bisa lebih dari 1, wajib 1 tingkatan):", 
     opsi_item
 )
 
