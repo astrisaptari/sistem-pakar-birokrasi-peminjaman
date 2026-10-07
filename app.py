@@ -30,17 +30,14 @@ ITEM_INFO_MAP = {
 def run_forward_chaining(kategori, items_terpilih_label):
     log_aturan = []
     
-    # Extract nama bersih dan tingkatan
     items_nama = [ITEM_INFO_MAP[item]["nama"] for item in items_terpilih_label]
     tingkat_set = {ITEM_INFO_MAP[item]["tingkat"] for item in items_terpilih_label}
 
-    # Validasi 1 Tingkatan
     if len(tingkat_set) > 1:
         return None, ["⚠️ ERROR: Item yang dipilih berasal dari tingkatan yang berbeda! Harap pilih item dari tingkatan kewenangan yang sama."]
     
     tingkat_terpilih = list(tingkat_set)[0]
     
-    # Phase 1: Penentuan Tingkat Birokrasi (R1 - R3)
     if tingkat_terpilih == "Fakultas":
         log_aturan.append(f"Aturan R1 Terpicu: Item {items_nama} berada di bawah wewenang Fakultas")
     elif tingkat_terpilih == "Universitas":
@@ -54,7 +51,6 @@ def run_forward_chaining(kategori, items_terpilih_label):
         'tingkat': tingkat_terpilih
     }
 
-    # Phase 2: Penentuan Alur Surat (R4 - R6)
     if tingkat_terpilih == "Prodi":
         working_memory['alur'] = "Himpunan ➔ Koprodi"
         log_aturan.append("Aturan R4 Terpicu: Alur surat diproses hingga Koprodi")
@@ -65,7 +61,6 @@ def run_forward_chaining(kategori, items_terpilih_label):
         working_memory['alur'] = "Himpunan ➔ Koprodi ➔ Dekanat/WD2 ➔ Biro Umum"
         log_aturan.append("Aturan R6 Terpicu: Alur surat diproses hingga Biro Umum")
 
-    # Phase 3: Penentuan Lampiran (R7 - R8)
     if "Barang / Inventaris" in kategori and "Tempat / Ruangan" in kategori:
         working_memory['lampiran'] = ["Rundown Acara", "Daftar Detail Barang yang Dipinjam", "Daftar Ruangan yang Dipinjam"]
         log_aturan.append("Aturan R7 & R8 Terpicu: Membutuhkan Rundown, Detail Barang, dan Detail Ruangan")
@@ -78,6 +73,10 @@ def run_forward_chaining(kategori, items_terpilih_label):
 
     return working_memory, log_aturan
 
+# Inisialisasi Session State
+if 'working_memory' not in st.session_state:
+    st.session_state.working_memory = None
+
 # ==========================================
 # TAB 1: DEMO APLIKASI INTERAKTIF
 # ==========================================
@@ -88,7 +87,6 @@ with tab1:
         default=["Tempat / Ruangan"]
     )
 
-    # Filter daftar item berdasarkan kategori yang dipilih
     opsi_item = [
         label for label, info in ITEM_INFO_MAP.items() 
         if info["jenis"] in kategori_pilihan
@@ -104,73 +102,117 @@ with tab1:
     if btn_proses:
         if not items_terpilih:
             st.warning("⚠️ Silakan pilih minimal 1 item terlebih dahulu!")
+            st.session_state.working_memory = None
         else:
-            working_memory, log_aturan = run_forward_chaining(kategori_pilihan, items_terpilih)
-
-            if working_memory is None:
-                st.error(log_aturan[0])
+            wm, log_at = run_forward_chaining(kategori_pilihan, items_terpilih)
+            if wm is None:
+                st.error(log_at[0])
+                st.session_state.working_memory = None
             else:
-                st.divider()
-                st.success("✅ Analisis Berhasil Dilakukan!")
-                st.info(f"**Tingkat Kewenangan:** {working_memory.get('tingkat')}")
-                st.markdown(f"**📍 Alur Pengajuan Surat:**\n### {working_memory.get('alur')}")
-                
-                st.markdown("**📄 Checklist Berkas Lampiran Wajib:**")
-                for doc in working_memory.get('lampiran', []):
-                    st.checkbox(doc, value=True, disabled=True)
+                st.session_state.working_memory = wm
+                st.session_state.log_aturan = log_at
 
-                with st.expander("⚙️ Lihat Log Penalaran (Forward Chaining)"):
-                    st.write("Fakta awal yang dimasukkan:", working_memory)
-                    st.write("Aturan yang terpicu secara berurutan:")
-                    for log in log_aturan:
-                        st.code(log, language="text")
+    if st.session_state.working_memory is not None:
+        wm = st.session_state.working_memory
+        st.divider()
+        st.success("✅ Analisis Berhasil Dilakukan!")
+        st.info(f"**Tingkat Kewenangan:** {wm.get('tingkat')}")
+        st.markdown(f"**📍 Alur Pengajuan Surat:**\n### {wm.get('alur')}")
+        
+        st.markdown("**📄 Checklist Berkas Lampiran Wajib:**")
+        for doc in wm.get('lampiran', []):
+            st.checkbox(doc, value=True, disabled=True)
+
+        with st.expander("⚙️ Lihat Log Penalaran (Forward Chaining)"):
+            st.write("Fakta awal yang dimasukkan:", wm)
+            st.write("Aturan yang terpicu secara berurutan:")
+            for log in st.session_state.log_aturan:
+                st.code(log, language="text")
 
 # ==========================================
 # TAB 2: BACKWARD CHAINING, CF, & LIMITATIONS
 # ==========================================
 with tab2:
-    st.header("🌲 1. Pohon Backward Chaining (Goal-Driven)")
-    st.write("Backward Chaining bekerja secara terbalik, yaitu dari **Goal (Tujuan/Hipotesis Akhir)** menuju **Fakta Awal**.")
+    st.header("🌲 1. Pohon Backward Chaining Dinamis (Goal-Driven)")
+    
+    if st.session_state.working_memory is None:
+        st.info("💡 **Silakan lakukan analisis di Tab 1 terlebih dahulu** untuk melihat Diagram Pohon Pembuktian Backward Chaining secara dinamis berdasarkan pilihanmu!")
+    else:
+        wm = st.session_state.working_memory
+        items_str = ", ".join(wm['items'])
+        tingkat = wm['tingkat']
+        alur = wm['alur']
+        lampiran_str = " + ".join(wm['lampiran'])
 
-    st.markdown("""
-    **Struktur Pohon Pembuktian:**
+        st.markdown(f"**Pembuktian Hipotesis untuk Pilihan Pengguna:** `{items_str}`")
 
-    - **GOAL UTAMA:** `Alur Birokrasi Surat Terkonfirmasi?`
-    - **SUB-GOAL 1:** Membuktikan `Tingkat Kewenangan`
-        - *Misal Hipotesis:* `Tingkat = Fakultas`
-        - **Aturan R1:** Membutuhkan `Item` = "Aula Wiswakarma" / "Gedung Undagi Graha" / "Sofa Fakultas" / "Mixer Fakultas"
-        - **Cek Fakta Awal:** Apakah pengguna memilih salah satu item tersebut? $\\rightarrow$ **YA (Terbukti)**
+        # DIAGRAM POHON VISUAL (GRAPHVIZ)
+        dot_code = f"""
+        digraph G {{
+            rankdir=BT;
+            node [shape=box, style="filled,rounded", fontname="sans-serif", fontsize=10];
+            
+            Fakta1 [label="Fakta 1:\\nItem Terpilih = {items_str}", fillcolor="#e1f5fe"];
+            Fakta2 [label="Fakta 2:\\nKategori = {', '.join(wm['kategori'])}", fillcolor="#e1f5fe"];
+            
+            Sub1 [label="Sub-Goal 1:\\nTingkat = {tingkat}", fillcolor="#fff9c4"];
+            Sub2 [label="Sub-Goal 2:\\nAlur = {alur}", fillcolor="#fff9c4"];
+            Sub3 [label="Sub-Goal 3:\\nLampiran = {lampiran_str}", fillcolor="#fff9c4"];
+            
+            Goal [label="GOAL UTAMA:\\nAlur & Berkas Surat Terkonfirmasi", fillcolor="#c8e6c9", shape=doubleoctagon];
+            
+            Fakta1 -> Sub1 [label="Terbukti dari Item"];
+            Sub1 -> Sub2 [label="Memicu Alur"];
+            Fakta2 -> Sub3 [label="Memicu Lampiran"];
+            
+            Sub2 -> Goal;
+            Sub3 -> Goal;
+        }}
+        """
+        st.graphviz_chart(dot_code)
 
-    - **SUB-GOAL 2:** Membuktikan `Alur Pengajuan`
-        - **Aturan R5:** `IF` Tingkat = Fakultas `THEN` Alur = "Himpunan $\\rightarrow$ Koprodi $\\rightarrow$ Dekanat/WD2"
-        - **Cek Fakta:** `Tingkat = Fakultas` sudah terbukti di SUB-GOAL 1 $\\rightarrow$ **YA (Terbukti)**
-
-    - **SUB-GOAL 3:** Membuktikan `Persyaratan Lampiran`
-        - **Aturan R8:** `IF` Kategori = Tempat / Ruangan `THEN` Lampiran = "Rundown Acara + Daftar Ruangan"
-        - **Cek Fakta Awal:** Apakah pengguna memilih kategori "Tempat / Ruangan"? $\\rightarrow$ **YA (Terbukti)**
-
-    **Kesimpulan Backward Chaining:** Goal `Alur Birokrasi Surat Terkonfirmasi` berhasil dibuktikan secara berantai dari bawah ke atas (*bottom-up verification*).
-    """)
+        st.markdown("""
+        **Langkah Pembuktian Terbalik (Bottom-Up Verification):**
+        1. **Goal Utama:** Membuktikan apakah rekomendasi surat dapat diterbitkan?
+        2. **Membuktikan Sub-Goal 1 (Tingkat Kewenangan):**
+           - Hipotesis: Apakah tingkat kewenangan = **{0}**?
+           - Cek Aturan: Terbukti karena pilihan item `{1}` terdaftar di bawah wewenang **{0}**.
+        3. **Membuktikan Sub-Goal 2 (Alur Birokrasi):**
+           - Cek Aturan: Berdasarkan Tingkat **{0}**, alur surat otomatis ditetapkan ke: `{2}`.
+        4. **Membuktikan Sub-Goal 3 (Syarat Lampiran):**
+           - Cek Aturan: Berdasarkan Kategori yang dipilih, lampiran wajib adalah `{3}`.
+        5. **Kesimpulan:** Goal utama **BERHASIL TERBUKTI**.
+        """.format(tingkat, items_str, alur, lampiran_str))
 
     st.divider()
 
-    st.header("🧮 2. Perhitungan Certainty Factor (CF)")
-    st.write("Misalkan pada aturan penentuan tingkat birokrasi (R1):")
+    st.header("🧮 2. Simulasi & Perhitungan Certainty Factor (CF)")
+    st.write("Certainty Factor (CF) digunakan untuk mengukur tingkat kepastian/keyakinan sistem terhadap rekomendasi yang diberikan.")
 
-    st.markdown("""
-    - **CF Pengguna / Fakta 1** ($CF(E_1)$) = $0.80$ (Tingkat keyakinan pengguna bahwa ruangan sedang kosong/dapat dipinjam)
-    - **CF Pengguna / Fakta 2** ($CF(E_2)$) = $0.90$ (Tingkat keyakinan keberadaan penanggung jawab tempat)
-    - **CF Aturan Pakar** ($CF_{aturan}$) = $0.85$ (Kekuatan aturan pakar)
+    # Skenario Interaktif Slider CF
+    col1, col2 = st.columns(2)
+    with col1:
+        cf_e1 = st.slider("1. Keyakinan Ketersediaan Tempat/Barang (CF User 1)", 0.0, 1.0, 0.80, 0.05)
+        cf_e2 = st.slider("2. Keyakinan Adanya Penanggung Jawab (CF User 2)", 0.0, 1.0, 0.90, 0.05)
+    with col2:
+        cf_rule = st.slider("3. Kekuatan Aturan Pakar (CF Aturan)", 0.0, 1.0, 0.85, 0.05)
 
-    **Langkah Perhitungan:**
-    1. **Kombinasi Premis (Operasi AND):**
-       $$CF_{premis} = \\min(CF(E_1); CF(E_2)) = \\min(0.80; 0.90) = 0.80$$
+    # PERHITUNGAN STEP-BY-STEP
+    cf_premis = min(cf_e1, cf_e2)
+    cf_akhir = cf_premis * cf_rule
 
-    2. **Perhitungan CF Kesimpulan Tunggal:**
-       $$CF_{hipotesis} = CF_{premis} \\times CF_{aturan} = 0.80 \\times 0.85 = 0.68$$
+    st.subheader("Langkah Perhitungan Sederhana:")
+    st.markdown(f"""
+    * **Langkah 1 (Kombinasi Kondisi Input dengan Operasi AND):**  
+      Ambil nilai terkecil (*minimum*) dari keyakinan user:  
+      $$\\text{{CF}}_{{\\text{{premis}}}} = \\min({cf_e1:.2f}, {cf_e2:.2f}) = {cf_premis:.2f}$$
 
-    **Hasil Akhir:** Tingkat keyakinan (*Certainty Factor*) sistem terhadap rekomendasi birokrasi tersebut adalah **$0.68$** atau **$68\\%$**.
+    * **Langkah 2 (Kalikan dengan Bobot Aturan Pakar):**  
+      $$\\text{{CF}}_{{\\text{{akhir}}}} = \\text{{CF}}_{{\\text{{premis}}}} \\times \\text{{CF}}_{{\\text{{aturan}}}}$$  
+      $$\\text{{CF}}_{{\\text{{akhir}}}} = {cf_premis:.2f} \\times {cf_rule:.2f} = \\mathbf{{{cf_akhir:.4f}}}$$
     """)
+
+    st.success(f"🎯 **Hasil Akhir Certainty Factor:** `{cf_akhir:.4f}` atau **`{cf_akhir*100:.1f}%`** keyakinan bahwa alur surat ini siap diajukan.")
 
     st.divider()
 
@@ -178,7 +220,6 @@ with tab2:
     st.markdown("""
     Sistem pakar berbasis aturan *Forward/Backward Chaining* ini memiliki beberapa keterbatasan utama:
 
-    - **Sifat Aturan yang Kaku (*Rigid Rules*):** Sistem hanya dapat mengambil keputusan dari daftar aturan (*Rule Base*) R1–R8 yang telah terprogram. Jika pengguna memasukkan item/lokasi di luar basis pengetahuan, sistem tidak dapat memberikan rekomendasi.
-    - **Tidak Mempertimbangkan Jadwal Bentrok (*Real-Time Availability*):** Sistem hanya menyimpulkan **alur birokrasi dan syarat surat**, namun tidak mengetahui apakah pada tanggal tersebut ruangan/barang sebenarnya sudah dibooking oleh organisasi lain.
-    - **Penanganan Ketidakpastian yang Terbatas:** Tanpa integrasi algoritma *Fuzzy Logic* atau *Bayes*, sistem menganggap status tempat/barang bernilai mutlak (tersedia atau tidak), sehingga tidak fleksibel terhadap kondisi khusus (seperti izin lisan mendadak dari dekan/pejabat).
+    * Sistem hanya dapat mengambil keputusan dari daftar aturan (*Rule Base*) R1–R8 yang telah terprogram.
+    * Tidak Mempertimbangkan Jadwal Bentrok
     """)
